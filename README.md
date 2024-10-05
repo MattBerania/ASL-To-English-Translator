@@ -1,1 +1,0 @@
-# ASL-To-English-Translator
