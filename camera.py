@@ -1,54 +1,59 @@
 import cv2
 import mediapipe as mp
 import numpy as np
-import requests  # For sending data to Flask
+import requests  # for sending data to flask
 
-# Initialize MediaPipe Hands
+# initializing mediapipe hands
 mp_hands = mp.solutions.hands
 hands = mp_hands.Hands(static_image_mode=False, max_num_hands=1, min_detection_confidence=0.5)
-mp_drawing = mp.solutions.drawing_utils  # Import drawing utilities
+mp_drawing = mp.solutions.drawing_utils  
 
-# Initialize OpenCV video capture
+# initialize video camera
 cap = cv2.VideoCapture(0)
 
+# while the camera is open, read input frames
 while True:
     ret, frame = cap.read()
     if not ret:
+        print("Error: Could not read a frame from the camera.")
         break
 
-    # Flip the frame horizontally for a later selfie-view display
+    # mirrors camera
     frame = cv2.flip(frame, 1)
 
-    # Convert the frame to RGB
+    # converts the frames to RGB since mediapipe and tensorflow are default RGB
     rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
     result = hands.process(rgb_frame)
 
-    # Draw landmarks on the frame if any hands are detected
+    # shows landmarks on hands if detected on camera
     if result.multi_hand_landmarks:
         for hand_landmarks in result.multi_hand_landmarks:
-            # Draw landmarks and connections
+            # draws landmarks and connections
             mp_drawing.draw_landmarks(frame, hand_landmarks, mp_hands.HAND_CONNECTIONS)
 
-            # Extract landmark coordinates
+            # extracts landmark data
             landmark_data = []
             for lm in hand_landmarks.landmark:
                 landmark_data.append([lm.x, lm.y, lm.z])  # x, y, z coordinates
 
-            # Prepare data for the Flask prediction route
-            input_data = np.array(landmark_data).flatten().tolist()  # Flattening and converting to list
+            # flattens input data and converts to list for prediction
+            input_data = np.array(landmark_data).flatten().tolist() 
 
-            # Send the data to the Flask API for prediction
+            # sends the data to flask app for prediction
             try:
                 response = requests.post('http://127.0.0.1:5000/predict', json={'landmarks': input_data})
-                prediction = response.json().get('letter')  # Updated to match your Flask response
-                print(f"Prediction: {prediction}")
+                if response.status_code == 200:
+                    prediction = response.json().get('letter')  # get predicted letter from the response
+                    print(f"Prediction: {prediction}")
+                else:
+                    print("Error with API response.")
             except Exception as e:
                 print(f"Error sending landmarks: {e}")
 
-    # Show the frame with OpenCV
+    # shows frames using opencv camera
     cv2.imshow("ASL Recognition", frame)
 
-    # Break the loop on 'q' key press
+    # exits application when 'q' is pressed
     if cv2.waitKey(1) & 0xFF == ord('q'):
         break
 
